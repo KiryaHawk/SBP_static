@@ -1,10 +1,9 @@
 ymaps.ready(function () {
-
     fetch('open.json')
         .then(response => response.json())
         .then(obj => {
-
             console.log(obj);
+
             const searchControls = new ymaps.control.SearchControl({
                 options: {
                     float: 'right',
@@ -14,12 +13,12 @@ ymaps.ready(function () {
 
             // Инициализация карты
             const myMap = new ymaps.Map("map", {
-                center: [55.76, 37.64], // Начальные координаты
-                zoom: 7, // Начальный уровень зума
+                center: [55.76, 37.64],
+                zoom: 7,
                 controls: [searchControls]
             });
 
-            // Удаление ненужных элементов управления
+            // Удаляем ненужные элементы управления
             const removeControls = [
                 'geolocationControl',
                 'trafficControl',
@@ -30,53 +29,51 @@ ymaps.ready(function () {
             ];
 
             const clearTheMap = myMap => {
-                removeControls.forEach(controls => myMap.controls.remove(controls));
+                removeControls.forEach(control => myMap.controls.remove(control));
             };
 
             clearTheMap(myMap);
 
-            // Создание ObjectManager для кластеризации
+            // ObjectManager с нужными опциями
             const objectManager = new ymaps.ObjectManager({
                 clusterize: true,
-                clusterIconLayout: "default#pieChart"
+                clusterIconLayout: "default#pieChart",
+                clusterDisableClickZoom: true, // Чтобы клик по кластеру не улетал в зум
+                geoObjectOpenBalloonOnClick: true,
+                geoObjectHasBalloon: true,
+                geoObjectOpenHintOnHover: true
             });
 
-            // Массив координат для расчета границ
-            let minLatitude = Infinity, maxLatitude = -Infinity;
-            let minLongitude = Infinity, maxLongitude = -Infinity;
+            // Обновим координаты и найдём границы
+            let minLat = Infinity, maxLat = -Infinity;
+            let minLon = Infinity, maxLon = -Infinity;
 
-            // Обрабатываем объекты и инвертируем координаты
             obj.features.forEach(feature => {
                 if (feature.geometry && feature.geometry.coordinates) {
-                    const [longitude, latitude] = feature.geometry.coordinates;
-                    feature.geometry.coordinates = [latitude, longitude];  // Меняем долготу и широту местами
+                    const [lon, lat] = feature.geometry.coordinates;
+                    feature.geometry.coordinates = [lat, lon]; // Инвертируем координаты
 
-                    // Определяем минимальные и максимальные координаты
-                    minLatitude = Math.min(minLatitude, latitude);
-                    maxLatitude = Math.max(maxLatitude, latitude);
-                    minLongitude = Math.min(minLongitude, longitude);
-                    maxLongitude = Math.max(maxLongitude, longitude);
+                    minLat = Math.min(minLat, lat);
+                    maxLat = Math.max(maxLat, lat);
+                    minLon = Math.min(minLon, lon);
+                    maxLon = Math.max(maxLon, lon);
                 }
             });
 
-            // Очистка данных в ObjectManager перед добавлением новых объектов
-            objectManager.removeAll();
+            objectManager.removeAll(); // На всякий случай очистим
 
-            // Добавляем все объекты в objectManager
-            objectManager.add(obj);
+            objectManager.add(obj); // Добавим объекты
+            myMap.geoObjects.add(objectManager); // Добавим на карту
 
-            // Добавляем objectManager на карту
-            myMap.geoObjects.add(objectManager);
-
-            // Устанавливаем границы карты вручную
-            if (minLatitude !== Infinity && maxLatitude !== -Infinity &&
-                minLongitude !== Infinity && maxLongitude !== -Infinity) {
+            // Установим границы
+            if (minLat !== Infinity && maxLat !== -Infinity &&
+                minLon !== Infinity && maxLon !== -Infinity) {
                 const bounds = [
-                    [minLatitude, minLongitude],  // Низшая точка
-                    [maxLatitude, maxLongitude]   // Высшая точка
+                    [minLat, minLon],
+                    [maxLat, maxLon]
                 ];
                 myMap.setBounds(bounds, {
-                    checkZoomRange: true  // Устанавливаем зум в зависимости от объема данных
+                    checkZoomRange: true
                 });
             }
         });
