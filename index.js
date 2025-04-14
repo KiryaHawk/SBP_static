@@ -2,8 +2,6 @@ ymaps.ready(function () {
     fetch('open.json')
         .then(response => response.json())
         .then(obj => {
-            console.log(obj);
-
             const searchControls = new ymaps.control.SearchControl({
                 options: {
                     float: 'right',
@@ -11,14 +9,12 @@ ymaps.ready(function () {
                 }
             });
 
-            // Инициализация карты
             const myMap = new ymaps.Map("map", {
                 center: [55.76, 37.64],
                 zoom: 7,
                 controls: [searchControls]
             });
 
-            // Удаляем ненужные элементы управления
             const removeControls = [
                 'geolocationControl',
                 'trafficControl',
@@ -28,23 +24,17 @@ ymaps.ready(function () {
                 'typeSelector'
             ];
 
-            const clearTheMap = myMap => {
-                removeControls.forEach(control => myMap.controls.remove(control));
-            };
+            removeControls.forEach(control => myMap.controls.remove(control));
 
-            clearTheMap(myMap);
-
-            // ObjectManager с нужными опциями
             const objectManager = new ymaps.ObjectManager({
                 clusterize: true,
                 clusterIconLayout: "default#pieChart",
-                clusterDisableClickZoom: true, // Чтобы клик по кластеру не улетал в зум
+                clusterDisableClickZoom: false, // Разрешаем клик-зум по кластерам
                 geoObjectOpenBalloonOnClick: true,
                 geoObjectHasBalloon: true,
                 geoObjectOpenHintOnHover: true
             });
 
-            // Обновим координаты и найдём границы
             let minLat = Infinity, maxLat = -Infinity;
             let minLon = Infinity, maxLon = -Infinity;
 
@@ -60,12 +50,11 @@ ymaps.ready(function () {
                 }
             });
 
-            objectManager.removeAll(); // На всякий случай очистим
+            objectManager.removeAll();
+            objectManager.add(obj);
+            myMap.geoObjects.add(objectManager);
 
-            objectManager.add(obj); // Добавим объекты
-            myMap.geoObjects.add(objectManager); // Добавим на карту
-
-            // Установим границы
+            // Наводим карту на все точки
             if (minLat !== Infinity && maxLat !== -Infinity &&
                 minLon !== Infinity && maxLon !== -Infinity) {
                 const bounds = [
@@ -76,5 +65,30 @@ ymaps.ready(function () {
                     checkZoomRange: true
                 });
             }
+
+            // Поведение при клике по кластеру
+            objectManager.events.add('click', function (e) {
+                const objectId = e.get('objectId');
+
+                if (objectManager.clusters.getById(objectId)) {
+                    // Это кластер
+                    const cluster = objectManager.clusters.getById(objectId);
+                    const clusterCenter = cluster.geometry.coordinates;
+
+                    const currentZoom = myMap.getZoom();
+                    const maxZoom = myMap.options.get('maxZoom') || 18;
+
+                    if (currentZoom < maxZoom) {
+                        myMap.setCenter(clusterCenter, currentZoom + 2, { duration: 300 });
+                    }
+                } else {
+                    // Это одиночный объект
+                    const geoObject = objectManager.objects.getById(objectId);
+                    if (geoObject) {
+                        const coords = geoObject.geometry.coordinates;
+                        myMap.setCenter(coords, Math.min(myMap.getZoom() + 1, 17), { duration: 300 });
+                    }
+                }
+            });
         });
 });
